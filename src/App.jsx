@@ -133,7 +133,114 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Aquí sigue el resto de tu JSX */}
+      {view === "main" && (
+        <div>
+          <h1>CuentasAPP</h1>
+
+          <div className="user-section">
+            <h2>Crear Usuario</h2>
+            <input
+              type="text"
+              placeholder="Nombre del usuario"
+              value={newUserName}
+              onChange={(e) => setNewUserName(e.target.value)}
+            />
+            <button onClick={addUser}>Agregar Usuario</button>
+          </div>
+
+          <div className="expense-section">
+            <h2>Agregar Gasto</h2>
+            <select value={payer} onChange={(e) => setPayer(e.target.value)}>
+              <option value="">Seleccionar pagador</option>
+              {users.map((user) => (
+              <option key={user.name} value={user.name}>
+                {user.name}
+              </option>
+              ))}
+            </select>
+
+            <input
+              type="number"
+              placeholder="Monto total"
+              value={expenseAmount}
+              onChange={(e) => setExpenseAmount(e.target.value)}
+            />
+            <div>
+              <h3>Participantes</h3>
+              {users.map((user) => (
+                <label key={user.name}>
+                  <input
+                    type="checkbox"
+                    checked={participants.includes(user.name)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setParticipants((prev) => [...prev, user.name]);
+                      } else {
+                        setParticipants((prev) => prev.filter((name) => name !== user.name));
+                      }
+                    }}
+                  />
+                  {user.name}
+                </label>
+              ))}
+            </div>
+            <button onClick={addExpense}>Agregar Gasto</button>
+          </div>
+
+          <div className="user-list">
+            <h2>Usuarios</h2>
+            {users.map((user) => (
+              <div key={user.name} className="user-item">
+                <span onClick={() => handleUserClick(user)}>{user.name}</span>
+                <button
+                  className="delete-button"
+                  onClick={() => removeUser(user.name)}
+                >
+                  Eliminar
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {view === "details" && selectedUser && (
+        <div className="details-view">
+          <button className="back-button" onClick={handleBackToMain}>
+            Volver
+          </button>
+          <h2>Deudas de {selectedUser.name}</h2>
+          <ul>
+            {users
+              .filter((user) => user.name !== selectedUser.name)
+              .map((user) => {
+                const debt = selectedUser.debts.find((d) => d.person === user.name);
+                return (
+                  <li key={user.name}>
+                    {user.name}: ${debt ? debt.amount : 0}
+                  </li>
+                );
+              })}
+          </ul>
+
+          <div className="add-debt">
+            <h3>Agregar Deuda</h3>
+            <input
+              type="text"
+              placeholder="Persona"
+              value={debtPerson}
+              onChange={(e) => setDebtPerson(e.target.value)}
+            />
+            <input
+              type="number"
+              placeholder="Monto"
+              value={debtAmount}
+              onChange={(e) => setDebtAmount(e.target.value)}
+            />
+            <button onClick={addDebt}>Agregar Deuda</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

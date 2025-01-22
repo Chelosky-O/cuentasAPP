@@ -1,11 +1,19 @@
 import React, { useState } from "react";
-import { supabase } from "../supabase"; // Asegúrate de que la ruta sea correcta
-
 
 function ExpenseForm({ users, setUsers }) {
   const [payer, setPayer] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
   const [participants, setParticipants] = useState([]);
+
+  const toggleSelectAllParticipants = () => {
+    if (participants.length === users.length) {
+      // Si todos están seleccionados, deseleccionamos todos
+      setParticipants([]);
+    } else {
+      // Seleccionamos a todos
+      setParticipants(users.map((user) => user.name));
+    }
+  };
 
   const addExpense = async () => {
     if (!payer || expenseAmount <= 0 || participants.length === 0) {
@@ -74,6 +82,14 @@ function ExpenseForm({ users, setUsers }) {
       />
       <div>
         <h3>Participantes</h3>
+        <label className="participant">
+          <input
+            type="checkbox"
+            onChange={toggleSelectAllParticipants}
+            checked={participants.length === users.length} // Si todos están seleccionados
+          />
+          Seleccionar Todos
+        </label>
         <div className="participants-container">
           {users.map((user) => (
             <label key={user.id} className="participant">

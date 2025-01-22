@@ -38,6 +38,15 @@ function App() {
     setNewUserName("");
   };
 
+  // Remove a user
+  const removeUser = (userName) => {
+    if (window.confirm(`¿Estás seguro de que deseas eliminar a ${userName}?`)) {
+      const updatedUsers = users.filter((user) => user.name !== userName);
+      setUsers(updatedUsers);
+      localStorage.setItem("users", JSON.stringify(updatedUsers));
+    }
+  };
+
   // Add a debt to a user
   const addDebt = () => {
     if (!selectedUser || debtPerson.trim() === "" || debtAmount <= 0) return;
@@ -58,7 +67,7 @@ function App() {
     setDebtAmount("");
   };
 
-  // Add an expense and distribute debts
+  // Add an expense and distribute debts with consideration of existing debts
   const addExpense = () => {
     if (!payer || expenseAmount <= 0 || participants.length === 0) return;
 
@@ -66,11 +75,35 @@ function App() {
 
     setUsers((prevUsers) => {
       return prevUsers.map((user) => {
-        if (participants.includes(user.name) && user.name !== payer) {
-          return {
-            ...user,
-            debts: [...user.debts, { person: payer, amount: amountPerPerson }],
-          };
+        if (participants.includes(user.name)) {
+          if (user.name === payer) return user; // Skip payer
+
+          const existingDebt = user.debts.find((d) => d.person === payer);
+          let updatedDebts = [...user.debts];
+
+          if (existingDebt) {
+            const newAmount = amountPerPerson - existingDebt.amount;
+            if (newAmount > 0) {
+              updatedDebts = updatedDebts.map((debt) =>
+                debt.person === payer ? { ...debt, amount: newAmount } : debt
+              );
+            } else {
+              updatedDebts = updatedDebts.filter((debt) => debt.person !== payer);
+              if (newAmount < 0) {
+                const payerIndex = prevUsers.findIndex((u) => u.name === payer);
+                if (payerIndex !== -1) {
+                  prevUsers[payerIndex].debts.push({
+                    person: user.name,
+                    amount: -newAmount,
+                  });
+                }
+              }
+            }
+          } else {
+            updatedDebts.push({ person: payer, amount: amountPerPerson });
+          }
+
+          return { ...user, debts: updatedDebts };
         }
         return user;
       });
@@ -147,12 +180,14 @@ function App() {
           <div className="user-list">
             <h2>Usuarios</h2>
             {users.map((user) => (
-              <div
-                key={user.name}
-                className="user-item"
-                onClick={() => handleUserClick(user)}
-              >
-                {user.name}
+              <div key={user.name} className="user-item">
+                <span onClick={() => handleUserClick(user)}>{user.name}</span>
+                <button
+                  className="delete-button"
+                  onClick={() => removeUser(user.name)}
+                >
+                  Eliminar
+                </button>
               </div>
             ))}
           </div>

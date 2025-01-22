@@ -14,51 +14,39 @@ function App() {
 
   // Load users from localStorage on app load
   useEffect(() => {
-    const fetchUsers = async () => {
-      const res = await fetch("/api/usuarios/get");
-      const data = await res.json();
-      setUsers(data);
-    };
-  
-    fetchUsers();
+    const storedUsers = JSON.parse(localStorage.getItem("users")) || [];
+    setUsers(storedUsers);
   }, []);
-  
+
+  // Save users to localStorage whenever they change
+  useEffect(() => {
+    if (users.length > 0) {
+      localStorage.setItem("users", JSON.stringify(users));
+    }
+  }, [users]);
 
   // Add a new user
-  const addUser = async () => {
-    const res = await fetch("/api/usuarios/add", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newUserName }),
-    });
-  
-    const data = await res.json();
-    if (res.ok) setUsers((prev) => [...prev, data.user]);
+  const addUser = () => {
+    if (newUserName.trim() === "") return;
+    if (users.some((user) => user.name === newUserName)) {
+      alert("El usuario ya existe.");
+      return;
+    }
+
+    const newUser = { name: newUserName, debts: [] };
+    setUsers((prevUsers) => [...prevUsers, newUser]);
+    setNewUserName("");
   };
-  
 
   // Remove a user
-  const removeUser = async (name) => {
-    const res = await fetch("/api/usuarios/delete", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-  
-    if (res.ok) setUsers((prev) => prev.filter((user) => user.name !== name));
-  };
-  
-
-
-  const updateDebts = async (name, debts) => {
-    await fetch("/api/usuarios/update", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, debts }),
-    });
+  const removeUser = (userName) => {
+    if (window.confirm(`¿Estás seguro de que deseas eliminar a ${userName}?`)) {
+      const updatedUsers = users.filter((user) => user.name !== userName);
+      setUsers(updatedUsers);
+      localStorage.setItem("users", JSON.stringify(updatedUsers));
+    }
   };
 
-  
   // Add a debt to a user
   const addDebt = () => {
     if (!selectedUser || debtPerson.trim() === "" || debtAmount <= 0) return;

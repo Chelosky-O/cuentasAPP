@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { get, set } from "@vercel/edge-config";
+import { get, set } from "@vercel/edge-config"; // Importa funciones de Edge Config
 import "./App.css";
 
 function App() {
@@ -13,19 +13,27 @@ function App() {
   const [payer, setPayer] = useState("");
   const [participants, setParticipants] = useState([]);
 
-  // Carga inicial de usuarios desde Edge Config
+  // Cargar usuarios desde Edge Config al iniciar
   useEffect(() => {
     const loadUsers = async () => {
-      const storedUsers = (await get("users")) || []; // Carga usuarios desde Edge Config
-      setUsersState(storedUsers);
+      try {
+        const storedUsers = (await get("users")) || []; // Cargar usuarios desde Edge Config
+        setUsersState(storedUsers);
+      } catch (error) {
+        console.error("Error al cargar usuarios desde Edge Config:", error);
+      }
     };
     loadUsers();
   }, []);
 
-  // Guarda los usuarios en Edge Config
+  // Guardar usuarios en Edge Config
   const saveUsers = async (updatedUsers) => {
-    await set("users", updatedUsers); // Guarda en Edge Config
-    setUsersState(updatedUsers);
+    try {
+      await set("users", updatedUsers); // Guardar usuarios en Edge Config
+      setUsersState(updatedUsers);
+    } catch (error) {
+      console.error("Error al guardar usuarios en Edge Config:", error);
+    }
   };
 
   // Agregar un nuevo usuario
@@ -133,10 +141,10 @@ function App() {
 
   return (
     <div className="app-container">
+      <h1>CuentasAPP</h1>
+
       {view === "main" && (
         <div>
-          <h1>CuentasAPP</h1>
-
           <div className="user-section">
             <h2>Crear Usuario</h2>
             <input
@@ -150,21 +158,20 @@ function App() {
 
           <div className="expense-section">
             <h2>Agregar Gasto</h2>
-            <select value={payer} onChange={(e) => setPayer(e.target.value)}>
-              <option value="">Seleccionar pagador</option>
-              {users.map((user) => (
-              <option key={user.name} value={user.name}>
-                {user.name}
-              </option>
-              ))}
-            </select>
-
             <input
               type="number"
               placeholder="Monto total"
               value={expenseAmount}
               onChange={(e) => setExpenseAmount(e.target.value)}
             />
+            <select value={payer} onChange={(e) => setPayer(e.target.value)}>
+              <option value="">Seleccionar pagador</option>
+              {users.map((user) => (
+                <option key={user.name} value={user.name}>
+                  {user.name}
+                </option>
+              ))}
+            </select>
             <div>
               <h3>Participantes</h3>
               {users.map((user) => (
@@ -174,9 +181,9 @@ function App() {
                     checked={participants.includes(user.name)}
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setParticipants((prev) => [...prev, user.name]);
+                        setParticipants([...participants, user.name]);
                       } else {
-                        setParticipants((prev) => prev.filter((name) => name !== user.name));
+                        setParticipants(participants.filter((p) => p !== user.name));
                       }
                     }}
                   />
@@ -192,12 +199,7 @@ function App() {
             {users.map((user) => (
               <div key={user.name} className="user-item">
                 <span onClick={() => handleUserClick(user)}>{user.name}</span>
-                <button
-                  className="delete-button"
-                  onClick={() => removeUser(user.name)}
-                >
-                  Eliminar
-                </button>
+                <button onClick={() => removeUser(user.name)}>Eliminar</button>
               </div>
             ))}
           </div>
@@ -206,24 +208,16 @@ function App() {
 
       {view === "details" && selectedUser && (
         <div className="details-view">
-          <button className="back-button" onClick={handleBackToMain}>
-            Volver
-          </button>
+          <button onClick={handleBackToMain}>Volver</button>
           <h2>Deudas de {selectedUser.name}</h2>
           <ul>
-            {users
-              .filter((user) => user.name !== selectedUser.name)
-              .map((user) => {
-                const debt = selectedUser.debts.find((d) => d.person === user.name);
-                return (
-                  <li key={user.name}>
-                    {user.name}: ${debt ? debt.amount : 0}
-                  </li>
-                );
-              })}
+            {selectedUser.debts.map((debt, index) => (
+              <li key={index}>
+                {debt.person}: ${debt.amount}
+              </li>
+            ))}
           </ul>
-
-          <div className="add-debt">
+          <div>
             <h3>Agregar Deuda</h3>
             <input
               type="text"

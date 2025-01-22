@@ -300,3 +300,21 @@ h1 {
 .payment-section button:hover {
   background-color: #0056b3;
 }
+
+.participants-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Espaciado entre cada fila de participantes */
+}
+
+.participant {
+  display: flex;
+  align-items: center; /* Alineación vertical precisa */
+  gap: 5px; /* Espaciado entre la checkbox y el texto */
+}
+
+.participant input[type="checkbox"] {
+  margin: 0;
+  transform: scale(1.2); /* Ajuste del tamaño del checkbox */
+  cursor: pointer;
+}

@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { supabase } from "../supabase"; // Asegúrate de que la ruta sea correcta
+
 
 function ExpenseForm({ users, setUsers }) {
   const [payer, setPayer] = useState("");

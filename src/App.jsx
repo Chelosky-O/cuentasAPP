@@ -14,39 +14,51 @@ function App() {
 
   // Load users from localStorage on app load
   useEffect(() => {
-    const storedUsers = JSON.parse(localStorage.getItem("users")) || [];
-    setUsers(storedUsers);
+    const fetchUsers = async () => {
+      const res = await fetch("/api/usuarios/get");
+      const data = await res.json();
+      setUsers(data);
+    };
+  
+    fetchUsers();
   }, []);
-
-  // Save users to localStorage whenever they change
-  useEffect(() => {
-    if (users.length > 0) {
-      localStorage.setItem("users", JSON.stringify(users));
-    }
-  }, [users]);
+  
 
   // Add a new user
-  const addUser = () => {
-    if (newUserName.trim() === "") return;
-    if (users.some((user) => user.name === newUserName)) {
-      alert("El usuario ya existe.");
-      return;
-    }
-
-    const newUser = { name: newUserName, debts: [] };
-    setUsers((prevUsers) => [...prevUsers, newUser]);
-    setNewUserName("");
+  const addUser = async () => {
+    const res = await fetch("/api/usuarios/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newUserName }),
+    });
+  
+    const data = await res.json();
+    if (res.ok) setUsers((prev) => [...prev, data.user]);
   };
+  
 
   // Remove a user
-  const removeUser = (userName) => {
-    if (window.confirm(`¿Estás seguro de que deseas eliminar a ${userName}?`)) {
-      const updatedUsers = users.filter((user) => user.name !== userName);
-      setUsers(updatedUsers);
-      localStorage.setItem("users", JSON.stringify(updatedUsers));
-    }
+  const removeUser = async (name) => {
+    const res = await fetch("/api/usuarios/delete", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+  
+    if (res.ok) setUsers((prev) => prev.filter((user) => user.name !== name));
+  };
+  
+
+
+  const updateDebts = async (name, debts) => {
+    await fetch("/api/usuarios/update", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, debts }),
+    });
   };
 
+  
   // Add a debt to a user
   const addDebt = () => {
     if (!selectedUser || debtPerson.trim() === "" || debtAmount <= 0) return;
@@ -69,51 +81,80 @@ function App() {
 
   // Add an expense and distribute debts with consideration of existing debts
   const addExpense = () => {
-    if (!payer || expenseAmount <= 0 || participants.length === 0) return;
-
-    const amountPerPerson = parseFloat(expenseAmount) / participants.length;
-
+    if (!payer || expenseAmount <= 0 || participants.length <= 1) return; // Deben haber al menos 2 personas
+  
+    const amountPerPerson = parseFloat(expenseAmount) / participants.length; // Parte que cada persona debe pagar
+  
     setUsers((prevUsers) => {
-      return prevUsers.map((user) => {
+      const updatedUsers = prevUsers.map((user) => {
         if (participants.includes(user.name)) {
-          if (user.name === payer) return user; // Skip payer
-
-          const existingDebt = user.debts.find((d) => d.person === payer);
+          if (user.name === payer) return user; // Saltar al pagador
+  
           let updatedDebts = [...user.debts];
-
-          if (existingDebt) {
-            const newAmount = amountPerPerson - existingDebt.amount;
-            if (newAmount > 0) {
-              updatedDebts = updatedDebts.map((debt) =>
-                debt.person === payer ? { ...debt, amount: newAmount } : debt
-              );
-            } else {
+          const existingDebtToPayer = user.debts.find((d) => d.person === payer);
+          const payerIndex = prevUsers.findIndex((u) => u.name === payer);
+  
+          // Ajustar las deudas con base en la parte que debe cada persona
+          const participantDebtToPayer =
+            (existingDebtToPayer?.amount || 0) + amountPerPerson;
+  
+          if (payerIndex !== -1) {
+            const debtFromPayer = prevUsers[payerIndex].debts.find(
+              (d) => d.person === user.name
+            );
+  
+            const adjustedDebt =
+              participantDebtToPayer - (debtFromPayer?.amount || 0);
+  
+            if (adjustedDebt > 0) {
+              // El participante le debe al pagador
               updatedDebts = updatedDebts.filter((debt) => debt.person !== payer);
-              if (newAmount < 0) {
-                const payerIndex = prevUsers.findIndex((u) => u.name === payer);
-                if (payerIndex !== -1) {
-                  prevUsers[payerIndex].debts.push({
-                    person: user.name,
-                    amount: -newAmount,
-                  });
-                }
+              updatedDebts.push({ person: payer, amount: adjustedDebt });
+  
+              if (debtFromPayer) {
+                prevUsers[payerIndex].debts = prevUsers[payerIndex].debts.filter(
+                  (debt) => debt.person !== user.name
+                );
               }
+            } else if (adjustedDebt < 0) {
+              // El pagador le debe al participante
+              if (debtFromPayer) {
+                prevUsers[payerIndex].debts = prevUsers[payerIndex].debts.filter(
+                  (debt) => debt.person !== user.name
+                );
+              }
+              prevUsers[payerIndex].debts.push({
+                person: user.name,
+                amount: -adjustedDebt,
+              });
+  
+              updatedDebts = updatedDebts.filter((debt) => debt.person !== payer);
+            } else {
+              // Saldo neto es 0, eliminar todas las deudas entre ellos
+              updatedDebts = updatedDebts.filter((debt) => debt.person !== payer);
+              prevUsers[payerIndex].debts = prevUsers[payerIndex].debts.filter(
+                (debt) => debt.person !== user.name
+              );
             }
-          } else {
-            updatedDebts.push({ person: payer, amount: amountPerPerson });
           }
-
+  
           return { ...user, debts: updatedDebts };
         }
+  
         return user;
       });
+  
+      return updatedUsers;
     });
-
+  
     setExpenseAmount("");
     setPayer("");
     setParticipants([]);
   };
+  
+  
 
+  
   const handleUserClick = (user) => {
     setSelectedUser(user);
     setView("details");
@@ -143,12 +184,15 @@ function App() {
 
           <div className="expense-section">
             <h2>Agregar Gasto</h2>
-            <input
-              type="text"
-              placeholder="Quién pagó"
-              value={payer}
-              onChange={(e) => setPayer(e.target.value)}
-            />
+            <select value={payer} onChange={(e) => setPayer(e.target.value)}>
+              <option value="">Seleccionar pagador</option>
+              {users.map((user) => (
+              <option key={user.name} value={user.name}>
+                {user.name}
+              </option>
+              ))}
+            </select>
+
             <input
               type="number"
               placeholder="Monto total"
